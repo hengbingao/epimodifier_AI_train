@@ -19,7 +19,7 @@ BEP-EpiPredict is a three-stage transfer learning framework for predicting the e
 - Model dCas9 binding intensity–response relationships
 
 <p align="center">
-  <img src="model_architecture/architecture_1.png" alt="Model Architecture" width="800"/>
+  <img src="model_architecture/architecture_2.png" alt="Model Architecture" width="1000"/>
 </p>
 
 ---
