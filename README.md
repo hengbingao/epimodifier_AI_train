@@ -52,11 +52,11 @@ Stage 1 — Frozen Enformer backbone
   DNA sequence (196 kbp) ─→ CNN + Transformer ─→ seq embedding (3072-dim)
 
 Stage 2 — BEP perturbation head (trained on HEK293T)
-  dCas9 ChIP  ─→ CNN1D encoder ─┐
-  ATAC-seq    ─→ CNN1D encoder  ├─→ Cross-modal attention ─→ FiLM(BEP+role) ─→ Δ heads
-  Methylation ─→ Transformer   ─┤      (dCas9 as Query)
-  Histone×25  ─→ Transformer   ─┘
-  Seq summary ────────────────────┘
+  dCas9 ChIP  → CNN1D encoder ─┐
+  ATAC-seq    → CNN1D encoder  ├-→ Cross-modal attention ─→ FiLM(BEP+role) ─→ Δ heads
+  Methylation → Transformer   ─┤      (dCas9 as Query)
+  Histone×25  → Transformer   ─┘
+  Seq summary ───────────────────┘
 
 Stage 3 — Cell-type adapter (K562 transfer)
   Freeze backbone + BEP head; train only ATAC cell adapter + output projections
