@@ -1,0 +1,218 @@
+# ================================================================
+# BEP Epigenome Editing Prediction Pipeline — Master Config
+# ================================================================
+# Experiment: dCas9-recruited BEP perturbation in HEK293T
+#             Transfer prediction to K562
+# ================================================================
+
+project:
+  name: "bep_epigenome_editing"
+  source_cell_type: "HEK293T"
+  target_cell_type: "K562"
+  seed: 42
+
+# ── BEPs ──────────────────────────────────────────────────────────
+beps:
+  - name: BEP073_GFP
+    role: control
+    index: 0
+  - name: BEP100_ZIM3
+    role: repressor
+    index: 1
+  - name: BEP396_FOG1
+    role: repressor
+    index: 2
+  - name: BEP486_SREBF2ddr
+    role: activator
+    index: 3
+  - name: BEP137_p65HSF1
+    role: activator
+    index: 4
+  - name: BEP217_HDAC4
+    role: repressor
+    index: 5
+  - name: BEP304_REST
+    role: repressor
+    index: 6
+  - name: BEP447_RCOR1
+    role: repressor
+    index: 7
+  - name: BEP450_SAP30
+    role: repressor
+    index: 8
+  - name: BEP491_KLF11ddr
+    role: repressor
+    index: 9
+
+control_bep: BEP073_GFP
+
+# ── Histone marks ─────────────────────────────────────────────────
+histone_marks:
+  - H3K4me3    # 0  active promoter
+  - H3K4me2    # 1
+  - H3K4me1    # 2  enhancer
+  - H3K27ac    # 3  active enhancer/promoter
+  - H3K9ac     # 4
+  - H3K14ac    # 5
+  - H3K18ac    # 6
+  - H4K16ac    # 7
+  - H4K5ac     # 8
+  - H4K8ac     # 9
+  - H4K20ac    # 10
+  - H2BK20ac   # 11
+  - H3R17me2a  # 12
+  - H3R8me2a   # 13
+  - H3K27me3   # 14 polycomb repression
+  - H3K9me3    # 15 heterochromatin
+  - H3K9me2    # 16
+  - H4K20me3   # 17
+  - H2AK119ub1 # 18 polycomb
+  - H3K36me3   # 19 transcribed gene body
+  - H3K36me2   # 20
+  - Pol_II_Ser2P    # 21 elongating Pol II
+  - Total_RNA_Pol_II # 22
+  - H3K27me1   # 23
+  - H4K20me1   # 24
+
+# ── Data paths (HEK293T) ──────────────────────────────────────────
+data:
+  hek293t:
+    root: "./data/HEK293T"
+    # {root}/{BEP_NAME}/histone/{MARK}_rep{1,2}.bedgraph
+    # {root}/{BEP_NAME}/atac/ATAC_rep{1,2}.bedgraph
+    # {root}/{BEP_NAME}/methylation/CG_allc.txt
+    # {root}/dcas9/dCas9_ChIP.bedgraph
+    # {root}/dcas9/dCas9_peaks.bed
+    # {root}/rna/RNA_{BEP}_rep{1,2}.tsv  (gene, TPM)
+    histone_template: "{root}/{bep}/histone/{mark}_rep{rep}.bedgraph"
+    atac_template:    "{root}/{bep}/atac/ATAC_rep{rep}.bedgraph"
+    methyl_template:  "{root}/{bep}/methylation/CG_allc.txt"
+    rna_template:     "{root}/rna/RNA_{bep}_rep{rep}.tsv"
+    dcas9_bg:         "{root}/dcas9/dCas9_ChIP.bedgraph"
+    dcas9_peaks:      "{root}/dcas9/dCas9_peaks.bed"
+
+  k562:
+    root: "./data/K562"
+    # K562 has GFP baseline only (histone + ATAC + meth)
+    histone_template: "{root}/GFP/histone/{mark}_rep{rep}.bedgraph"
+    atac_template:    "{root}/GFP/atac/ATAC_rep{rep}.bedgraph"
+    methyl_template:  "{root}/GFP/methylation/CG_allc.txt"
+    dcas9_bg:         "{root}/dcas9/dCas9_ChIP.bedgraph"
+    dcas9_peaks:      "{root}/dcas9/dCas9_peaks.bed"
+
+  genome:
+    fasta: "./data/genome/hg38.fa"
+    chrom_sizes: "./data/genome/hg38.chrom.sizes"
+    annotation_gtf: "./data/genome/gencode.v38.annotation.gtf"
+    blacklist: "./data/genome/hg38-blacklist.v2.bed"
+
+  window_size: 131072   # Enformer input window (128k bp)
+  bin_size: 128         # Enformer bin resolution
+  n_bins: 1024          # window_size / bin_size
+  peak_window: 4000     # signal extraction window around dCas9 peak
+  n_signal_bins: 100    # bins for signal profiles
+  min_dcas9_signal: 0.01
+  train_ratio: 0.70
+  val_ratio:   0.15
+  test_ratio:  0.15
+
+# ── Backbone model ────────────────────────────────────────────────
+backbone:
+  name: "enformer"   # enformer | enformer_celltyping | succeed
+  # Enformer pretrained checkpoint (download from DeepMind)
+  # pip install enformer-pytorch  OR  use official TF checkpoint
+  enformer_pytorch_hub: "EleutherAI/enformer-official-rough"
+  freeze_backbone: true
+  seq_output_dim: 3072   # Enformer per-bin embedding dim
+  atac_embed_dim: 256    # ATAC cell-type embedding dim
+
+# ── Model architecture ────────────────────────────────────────────
+model:
+  d_model: 256
+
+  # dCas9 signal encoder
+  dcas9_encoder:
+    n_bins: 100
+    out_dim: 256
+    channels: [32, 64, 128]
+
+  # Histone baseline encoder (25 marks)
+  histone_encoder:
+    d_model: 128
+    nhead: 4
+    num_layers: 2
+    dim_feedforward: 256
+    dropout: 0.1
+    out_dim: 256
+
+  # Methylation encoder
+  meth_encoder:
+    d_model: 64
+    nhead: 4
+    num_layers: 2
+    out_dim: 256
+
+  # ATAC encoder (baseline chromatin accessibility)
+  atac_encoder:
+    n_bins: 100
+    out_dim: 256
+
+  # BEP conditioning
+  bep_conditioning:
+    n_bep: 10
+    role_dim: 8       # activator/repressor/control embedding
+    film_dim: 512
+
+  # Cross-modal attention
+  cross_attn:
+    d_model: 256
+    nhead: 4
+
+  # Output heads
+  output:
+    histone_hidden: [256, 128]   # → 25 marks log2FC
+    atac_hidden:    [128, 64]    # → ATAC log2FC (scalar)
+    meth_hidden:    [128, 64]    # → meth delta (scalar)
+    rna_hidden:     [256, 128]   # → gene expression log2FC
+    log2fc_threshold: 0.5        # |log2FC| > this → up/down label
+
+# ── Training ─────────────────────────────────────────────────────
+training:
+  # Stage 2: fine-tune BEP head on HEK293T
+  stage2:
+    batch_size: 32
+    num_epochs: 100
+    learning_rate: 5e-4
+    weight_decay: 1e-4
+    scheduler: cosine
+    warmup_epochs: 5
+    gradient_clip: 1.0
+    early_stopping_patience: 15
+    loss_weights:
+      histone: 1.0
+      atac: 0.5
+      methylation: 0.3
+      rna: 0.8
+
+  # Stage 3: cross-cell transfer (K562)
+  stage3:
+    batch_size: 32
+    num_epochs: 30
+    learning_rate: 1e-4     # lower LR for fine-tuning
+    weight_decay: 1e-4
+    scheduler: cosine
+    warmup_epochs: 3
+    gradient_clip: 1.0
+    early_stopping_patience: 10
+    # Only train these modules; backbone + BEP head frozen
+    trainable_modules: ["cell_adapter", "output_heads"]
+
+  device: auto    # auto | cuda | cpu | mps
+
+# ── Logging ───────────────────────────────────────────────────────
+logging:
+  log_dir:        "./outputs/logs"
+  checkpoint_dir: "./checkpoints"
+  output_dir:     "./outputs/results"
+  save_every_n_epochs: 10
+  log_interval: 20

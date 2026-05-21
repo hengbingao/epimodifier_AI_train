@@ -1,0 +1,11 @@
+torch>=2.0.0
+numpy>=1.24.0
+pandas>=2.0.0
+scikit-learn>=1.3.0
+scipy>=1.11.0
+pyyaml>=6.0
+pyfaidx>=0.7.0
+matplotlib>=3.7.0
+# Optional (highly recommended):
+# enformer-pytorch   # pip install enformer-pytorch
+# shap               # pip install shap  (for full SHAP values)
